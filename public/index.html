@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <title>Calculator RCA</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-weight: bold; margin-bottom: 4px; }
+    input, select { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { background-color: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    .card { background: #f8f9fa; border: 1px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+
+  <h2>Cerere Ofertă RCA</h2>
+  
+  <div class="form-group">
+    <label>Nume Asigurat:</label>
+    <input type="text" id="lastName" value="Niculescu">
+  </div>
+  <div class="form-group">
+    <label>Prenume Asigurat:</label>
+    <input type="text" id="firstName" value="Mario">
+  </div>
+  <div class="form-group">
+    <label>CNP:</label>
+    <input type="text" id="taxId" value="1800101120017">
+  </div>
+  <div class="form-group">
+    <label>Număr Înmatriculare:</label>
+    <input type="text" id="licensePlate" value="CJ01ABC">
+  </div>
+  <div class="form-group">
+    <label>Serie Șasiu (VIN):</label>
+    <input type="text" id="vin" value="TMBJC7NE0K0123456">
+  </div>
+
+  <button onclick="obtineOferta()">1. Calculează Oferta</button>
+
+  <div id="rezultatOferta"></div>
+
+  <script>
+    let currentOfferId = null;
+let currentPremiumAmount = null;
+
+async function obtineOferta() {
+  const divRezultat = document.getElementById('rezultatOferta');
+  divRezultat.innerHTML = "Se calculează oferta...";
+
+  const cnp = document.getElementById('taxId').value || "1800101120017";
+  const nume = document.getElementById('lastName').value || "Niculescu";
+  const prenume = document.getElementById('firstName').value || "Mario";
+  const numar = document.getElementById('licensePlate').value || "CJ01ABC";
+  const vin = document.getElementById('vin').value || "TMBJC7NE0K0123456";
+
+  const payload = {
+    provider: {
+      organization: {
+        businessName: "eazy_insure"
+      }
+    },
+    product: {
+      motor: {
+        startDate: "2026-09-01",
+        termTime: 12,
+        directCompensation: false
+      },
+      policyholder: {
+        type: "person",
+        firstName: prenume,
+        lastName: nume,
+        taxId: cnp,
+        email: "mario.niculescu@test.ro",
+        phone: "0712345678",
+        citizenship: "RO",
+        identification: {
+          idType: "CI",
+          idNumber: "RX123456"
+        },
+        address: {
+          country: "RO",
+          county: "CJ",
+          city: "Cluj-Napoca",
+          cityCode: 54984,
+          street: "Strada Memorandumului",
+          houseNumber: "10",
+          postalCode: "400114"
+        }
+      },
+      owner: {
+        type: "person",
+        firstName: prenume,
+        lastName: nume,
+        taxId: cnp,
+        email: "mario.niculescu@test.ro",
+        phone: "0712345678",
+        citizenship: "RO",
+        identification: {
+          idType: "CI",
+          idNumber: "RX123456"
+        },
+        address: {
+          country: "RO",
+          county: "CJ",
+          city: "Cluj-Napoca",
+          cityCode: 54984,
+          street: "Strada Memorandumului",
+          houseNumber: "10",
+          postalCode: "400114"
+        }
+      },
+      vehicle: {
+        registrationType: "registered",
+        licensePlate: numar,
+        vin: vin,
+        identification: {
+          idNumber: "A123456"
+        },
+        vehicleType: "M1",
+        brand: "Skoda",
+        model: "Octavia",
+        yearOfConstruction: 2018,
+        civilRegistrationYear: 2018,
+        fuelType: "petrol",
+        usageType: "personal",
+        engineDisplacement: 1598,
+        enginePower: 85,
+        seats: 5,
+        totalWeight: 1800
+      }
+    }
+  };
+
+  try {
+    const response = await fetch('/api/offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const resJson = await response.json();
+
+    if (resJson.error) {
+      const eroriDetaliate = resJson.data ? JSON.stringify(resJson.data, null, 2) : resJson.message;
+      divRezultat.innerHTML = `
+        <div style="color: red; margin-top: 10px;">
+          <strong>Eroare: ${resJson.message}</strong>
+          <pre style="background: #ffe6e6; padding: 10px; border-radius: 4px; font-size: 12px; text-align: left;">${eroriDetaliate}</pre>
+        </div>`;
+      return;
+    }
+
+    // Adaptează asta dacă backend-ul tău întoarce structura sub `offers[0]`
+    const offerData = resJson.data.offers ? resJson.data.offers[0] : resJson.data;
+    currentOfferId = offerData.offerId || offerData.id;
+    currentPremiumAmount = offerData.premiumAmount;
+
+    divRezultat.innerHTML = `
+      <div class="card">
+        <h3 style="color: green;">Ofertă Generată cu Succes!</h3>
+        <p><strong>Offer ID:</strong> ${currentOfferId}</p>
+        <p><strong>Sumă:</strong> ${currentPremiumAmount} RON</p>
+        <button style="background: green;" onclick="emitePolita()">2. Emite Polița (GetPolicy)</button>
+      </div>
+      <div id="rezultatPolita"></div>
+    `;
+  } catch (err) {
+    divRezultat.innerHTML = `<p style="color: red;">Eroare server: ${err.message}</p>`;
+  }
+}
+
+async function emitePolita() {
+  const divPolita = document.getElementById('rezultatPolita');
+  divPolita.innerHTML = "Se emite polița...";
+
+  const azi = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const payload = {
+    offerId: currentOfferId,
+    payment: {
+      method: "broker receipt",      // eazy_insure NU acceptă "receipt"
+      currency: "RON",
+      amount: currentPremiumAmount,
+      date: azi,
+      documentNumber: "TEST-0001"    // pt broker receipt: serie+număr; altfel orice valoare
+    }
+  };
+
+  try {
+    const response = await fetch('/api/policy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const resJson = await response.json();
+
+    if (resJson.error) {
+      const eroriDetaliate = resJson.data ? JSON.stringify(resJson.data, null, 2) : resJson.message;
+      divPolita.innerHTML = `<p style="color: red;">Eroare emitere: ${eroriDetaliate}</p>`;
+      return;
+    }
+
+    divPolita.innerHTML = `
+      <div class="card" style="border-color: green;">
+        <h3 style="color: green;">Polița a fost emisă cu succes!</h3>
+        <pre style="text-align: left; font-size: 12px;">${JSON.stringify(resJson.data, null, 2)}</pre>
+      </div>
+    `;
+  } catch (err) {
+    divPolita.innerHTML = `<p style="color: red;">Eroare server: ${err.message}</p>`;
+  }
+}   
+  </script>
+</body>
+</html>
